@@ -1,10 +1,11 @@
 import type { ActiveGame, CompletedGame } from '../types';
 
-// Centralized persistence layer. Swap these functions to move from localStorage to a
-// backend (Supabase/Firebase/Turso/Postgres) without touching calling code.
+// Active game state stays in localStorage (frequent writes, single device, ephemeral).
+// Completed games are persisted server-side in Turso via /api/games, with a local
+// cache as a fallback if the network/API is unavailable.
 
 const ACTIVE_GAME_KEY = 'century-score:active-game';
-const HISTORY_KEY = 'century-score:history';
+const HISTORY_CACHE_KEY = 'century-score:history-cache';
 
 export function saveActiveGame(game: ActiveGame): void {
   localStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify(game));
@@ -24,8 +25,12 @@ export function clearActiveGame(): void {
   localStorage.removeItem(ACTIVE_GAME_KEY);
 }
 
-export function loadHistory(): CompletedGame[] {
-  const raw = localStorage.getItem(HISTORY_KEY);
+function cacheHistory(history: CompletedGame[]): void {
+  localStorage.setItem(HISTORY_CACHE_KEY, JSON.stringify(history));
+}
+
+function loadCachedHistory(): CompletedGame[] {
+  const raw = localStorage.getItem(HISTORY_CACHE_KEY);
   if (!raw) return [];
   try {
     return JSON.parse(raw) as CompletedGame[];
@@ -34,19 +39,38 @@ export function loadHistory(): CompletedGame[] {
   }
 }
 
-export function saveHistory(history: CompletedGame[]): void {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+export async function loadHistory(): Promise<CompletedGame[]> {
+  try {
+    const res = await fetch('/api/games');
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    const history = (await res.json()) as CompletedGame[];
+    cacheHistory(history);
+    return history;
+  } catch {
+    return loadCachedHistory();
+  }
 }
 
-export function addGameToHistory(game: CompletedGame): CompletedGame[] {
-  const history = loadHistory();
-  const updated = [game, ...history];
-  saveHistory(updated);
-  return updated;
+export async function addGameToHistory(game: CompletedGame): Promise<CompletedGame[]> {
+  try {
+    const res = await fetch('/api/games', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(game),
+    });
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  } catch {
+    // fall through — still update the local cache so the result isn't lost
+  }
+  return loadHistory();
 }
 
-export function deleteGameFromHistory(gameId: string): CompletedGame[] {
-  const updated = loadHistory().filter((g) => g.id !== gameId);
-  saveHistory(updated);
-  return updated;
+export async function deleteGameFromHistory(gameId: string): Promise<CompletedGame[]> {
+  try {
+    const res = await fetch(`/api/games/${gameId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  } catch {
+    // fall through
+  }
+  return loadHistory();
 }

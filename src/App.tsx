@@ -31,7 +31,7 @@ export default function App() {
 
   useEffect(() => {
     setActiveGame(loadActiveGame());
-    setHistory(loadHistory());
+    loadHistory().then(setHistory);
   }, []);
 
   function handleUpdateGame(game: ActiveGame) {
@@ -45,7 +45,7 @@ export default function App() {
     setView('active');
   }
 
-  function finalizeGame(game: ActiveGame, tieGroups: TieGroup[]) {
+  async function finalizeGame(game: ActiveGame, tieGroups: TieGroup[]) {
     const endTimestamp = new Date().toISOString();
     const actualDurationSeconds = elapsedSeconds(game.startTimestamp);
     const cost = totalCost(actualDurationSeconds, game.pricePerMinute);
@@ -69,13 +69,13 @@ export default function App() {
       tieGroups,
     };
 
-    setHistory(addGameToHistory(completed));
     clearActiveGame();
     setActiveGame(null);
     setPendingGame(null);
     setPendingTies([]);
     setFreshResult(completed);
     setView('results');
+    setHistory(await addGameToHistory(completed));
   }
 
   function handleCloseCentury(game: ActiveGame) {
@@ -89,8 +89,8 @@ export default function App() {
     }
   }
 
-  function handleDeleteHistory(gameId: string) {
-    setHistory(deleteGameFromHistory(gameId));
+  async function handleDeleteHistory(gameId: string) {
+    setHistory(await deleteGameFromHistory(gameId));
   }
 
   return (
