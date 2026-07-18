@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, ensureSchema } from '../_lib/db';
-import { rowToGame } from '../_lib/serialize';
+import { db, ensureSchema } from '../_lib/db.js';
+import { rowToGame } from '../_lib/serialize.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureSchema();
