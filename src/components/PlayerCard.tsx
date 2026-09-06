@@ -11,8 +11,9 @@ interface PlayerCardProps {
   onUndoLast: () => void;
 }
 
+// Matches real snooker ball values/colors — red is worth 1, same red used for the +10 bonus ball.
 const BALLS: { value: number; bg: string; text: string }[] = [
-  { value: 1, bg: '#f8fafc', text: '#111827' },
+  { value: 1, bg: '#ef4444', text: '#fff1f1' },
   { value: 2, bg: '#facc15', text: '#4a3400' },
   { value: 3, bg: '#22c55e', text: '#062b14' },
   { value: 4, bg: '#92400e', text: '#fde9d0' },
@@ -23,7 +24,6 @@ const BALLS: { value: number; bg: string; text: string }[] = [
 ];
 
 export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, onUndoLast }: PlayerCardProps) {
-  const [custom, setCustom] = useState('');
   const [pulse, setPulse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -31,20 +31,6 @@ export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, 
     fn(n);
     setPulse(true);
     setTimeout(() => setPulse(false), 260);
-  }
-
-  function handleCustomAdd() {
-    const n = Number(custom);
-    if (!n) return;
-    bump(onAdd, n);
-    setCustom('');
-  }
-
-  function handleCustomSubtract() {
-    const n = Number(custom);
-    if (!n) return;
-    bump(onSubtract, n);
-    setCustom('');
   }
 
   const recentEvents = [...events].reverse();
@@ -72,12 +58,12 @@ export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, 
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-2">
+      <div className="flex gap-1 mb-1.5">
         {BALLS.map((ball) => (
           <button
             key={`add-${ball.value}`}
             onClick={() => bump(onAdd, ball.value)}
-            className="btn-press w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-white/20"
+            className="btn-press flex-1 min-w-0 aspect-square rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs shadow-inner border border-white/20"
             style={{
               background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 45%), ${ball.bg}`,
               color: ball.text,
@@ -87,12 +73,12 @@ export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, 
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex gap-1 mb-3">
         {BALLS.map((ball) => (
           <button
             key={`sub-${ball.value}`}
             onClick={() => bump(onSubtract, ball.value)}
-            className="btn-press w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-white/20 opacity-80"
+            className="btn-press flex-1 min-w-0 aspect-square rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs shadow-inner border border-white/20 opacity-80"
             style={{
               background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 45%), ${ball.bg}`,
               color: ball.text,
@@ -101,29 +87,6 @@ export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, 
             −{ball.value}
           </button>
         ))}
-      </div>
-
-      <div className="flex gap-2 mb-3">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          placeholder="Custom"
-          className="w-20 bg-white/5 border border-white/15 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-300/60"
-        />
-        <button
-          onClick={handleCustomAdd}
-          className="btn-press flex-1 py-2.5 rounded-xl font-semibold bg-emerald-300/90 text-emerald-950"
-        >
-          Add
-        </button>
-        <button
-          onClick={handleCustomSubtract}
-          className="btn-press flex-1 py-2.5 rounded-xl font-semibold bg-rose-300/90 text-rose-950"
-        >
-          Subtract
-        </button>
       </div>
 
       <button
