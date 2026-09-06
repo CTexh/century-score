@@ -6,6 +6,12 @@ export interface Player {
   score: number;
 }
 
+// A saved roster entry — the only source of names offered when starting a new game.
+export interface SavedPlayer {
+  id: string;
+  name: string;
+}
+
 export interface ScoreEvent {
   id: string;
   playerId: string;

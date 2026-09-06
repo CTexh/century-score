@@ -19,25 +19,34 @@ export function db(): Client {
 
 export function ensureSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = getClient().execute(`
-      CREATE TABLE IF NOT EXISTS games (
-        id TEXT PRIMARY KEY,
-        date TEXT NOT NULL,
-        start_timestamp TEXT NOT NULL,
-        end_timestamp TEXT NOT NULL,
-        actual_duration_seconds INTEGER NOT NULL,
-        billable_minutes INTEGER NOT NULL,
-        target_score INTEGER NOT NULL,
-        price_per_minute REAL NOT NULL,
-        total_cost REAL NOT NULL,
-        winner TEXT NOT NULL,
-        players TEXT NOT NULL,
-        score_events TEXT NOT NULL,
-        ranking TEXT NOT NULL,
-        tie_groups TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `).then(() => undefined);
+    schemaReady = Promise.all([
+      getClient().execute(`
+        CREATE TABLE IF NOT EXISTS games (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          start_timestamp TEXT NOT NULL,
+          end_timestamp TEXT NOT NULL,
+          actual_duration_seconds INTEGER NOT NULL,
+          billable_minutes INTEGER NOT NULL,
+          target_score INTEGER NOT NULL,
+          price_per_minute REAL NOT NULL,
+          total_cost REAL NOT NULL,
+          winner TEXT NOT NULL,
+          players TEXT NOT NULL,
+          score_events TEXT NOT NULL,
+          ranking TEXT NOT NULL,
+          tie_groups TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `),
+      getClient().execute(`
+        CREATE TABLE IF NOT EXISTS players (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `),
+    ]).then(() => undefined);
   }
   return schemaReady;
 }

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
-import type { ActiveGame, CompletedGame, TieGroup } from './types';
+import type { ActiveGame, CompletedGame, SavedPlayer, TieGroup } from './types';
 import { detectTies, computeRanking, type DetectedTie } from './lib/ranking';
 import { billableMinutes, elapsedSeconds, totalCost } from './lib/billing';
 import {
   addGameToHistory,
+  addPlayer,
   clearActiveGame,
   deleteGameFromHistory,
+  deletePlayer,
   loadActiveGame,
   loadHistory,
+  loadPlayers,
   saveActiveGame,
 } from './lib/storage';
 import { StartScreen } from './components/StartScreen';
@@ -17,13 +20,15 @@ import { TieResolutionScreen } from './components/TieResolutionScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { HistoryScreen } from './components/HistoryScreen';
 import { StatsScreen } from './components/StatsScreen';
+import { PlayersScreen } from './components/PlayersScreen';
 
-type View = 'start' | 'setup' | 'active' | 'tie' | 'results' | 'history' | 'stats';
+type View = 'start' | 'setup' | 'active' | 'tie' | 'results' | 'history' | 'stats' | 'players';
 
 export default function App() {
   const [view, setView] = useState<View>('start');
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [history, setHistory] = useState<CompletedGame[]>([]);
+  const [players, setPlayers] = useState<SavedPlayer[]>([]);
   const [pendingGame, setPendingGame] = useState<ActiveGame | null>(null);
   const [pendingTies, setPendingTies] = useState<DetectedTie[]>([]);
   const [freshResult, setFreshResult] = useState<CompletedGame | null>(null);
@@ -34,6 +39,7 @@ export default function App() {
   useEffect(() => {
     setActiveGame(loadActiveGame());
     loadHistory().then(setHistory);
+    loadPlayers().then(setPlayers);
   }, []);
 
   // Give every screen a real entry in browser history so a swipe-back gesture (or the
@@ -139,6 +145,16 @@ export default function App() {
     setHistory(await deleteGameFromHistory(gameId));
   }
 
+  async function handleAddPlayer(id: string, name: string): Promise<SavedPlayer | null> {
+    const created = await addPlayer(id, name);
+    if (created) setPlayers(await loadPlayers());
+    return created;
+  }
+
+  async function handleDeletePlayer(id: string) {
+    setPlayers(await deletePlayer(id));
+  }
+
   return (
     <>
       {view === 'start' && (
@@ -148,10 +164,18 @@ export default function App() {
           onStartNew={() => navigate('setup')}
           onHistory={() => navigate('history')}
           onStats={() => navigate('stats')}
+          onManagePlayers={() => navigate('players')}
         />
       )}
 
-      {view === 'setup' && <GameSetup onStart={handleStartGame} onCancel={() => navigate('start')} />}
+      {view === 'setup' && (
+        <GameSetup
+          players={players}
+          onAddPlayer={handleAddPlayer}
+          onStart={handleStartGame}
+          onCancel={() => navigate('start')}
+        />
+      )}
 
       {view === 'active' && activeGame && (
         <ActiveGameScreen
@@ -185,6 +209,15 @@ export default function App() {
       )}
 
       {view === 'stats' && <StatsScreen history={history} onBack={() => navigate('start')} />}
+
+      {view === 'players' && (
+        <PlayersScreen
+          players={players}
+          onAdd={handleAddPlayer}
+          onDelete={handleDeletePlayer}
+          onBack={() => navigate('start')}
+        />
+      )}
     </>
   );
 }
