@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { ActiveGame, PlayerCount } from '../types';
+import { BackButton } from './BackButton';
 
 interface GameSetupProps {
   onStart: (game: ActiveGame) => void;
@@ -60,6 +61,7 @@ export function GameSetup({ onStart, onCancel }: GameSetupProps) {
       pricePerMinute,
       startTimestamp: new Date().toISOString(),
       scoreEvents: [],
+      finishedOrder: [],
     };
     onStart(game);
   }
@@ -68,11 +70,9 @@ export function GameSetup({ onStart, onCancel }: GameSetupProps) {
     <div className="min-h-svh px-5 py-8 flex flex-col items-center">
       <div className="w-full max-w-md fade-in-up">
         <div className="flex items-center justify-between mb-6">
-          <button onClick={onCancel} className="text-white/60 text-sm px-2 py-1">
-            ← Back
-          </button>
+          <BackButton onClick={onCancel} />
           <h1 className="text-xl font-bold">New Century</h1>
-          <div className="w-12" />
+          <div className="w-16" />
         </div>
 
         <section className="glass p-5 mb-4">

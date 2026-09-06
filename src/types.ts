@@ -36,6 +36,9 @@ export interface ActiveGame {
   pricePerMinute: number;
   startTimestamp: string; // ISO
   scoreEvents: ScoreEvent[];
+  // Player ids in the order they reached the target score and were confirmed out,
+  // rank 1 (winner) first. The one player never in this list is the last-place loser.
+  finishedOrder: string[];
 }
 
 export interface CompletedGame {

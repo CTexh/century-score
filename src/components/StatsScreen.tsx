@@ -1,6 +1,7 @@
 import type { CompletedGame } from '../types';
 import { computePlayerStats } from '../lib/stats';
 import { formatPKR } from '../lib/billing';
+import { BackButton } from './BackButton';
 
 interface StatsScreenProps {
   history: CompletedGame[];
@@ -14,11 +15,9 @@ export function StatsScreen({ history, onBack }: StatsScreenProps) {
     <div className="min-h-svh px-5 py-8 max-w-2xl mx-auto">
       <div className="fade-in-up">
         <div className="flex items-center justify-between mb-6">
-          <button onClick={onBack} className="text-white/60 text-sm px-2 py-1">
-            ← Back
-          </button>
+          <BackButton onClick={onBack} />
           <h1 className="text-xl font-bold">Player Statistics</h1>
-          <div className="w-12" />
+          <div className="w-16" />
         </div>
 
         {stats.length === 0 ? (

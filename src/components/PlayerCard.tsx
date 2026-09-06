@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import type { Player } from '../types';
+import type { Player, ScoreEvent } from '../types';
 
 interface PlayerCardProps {
   player: Player;
   rank: number;
   isLeader: boolean;
+  events: ScoreEvent[];
   onAdd: (delta: number) => void;
   onSubtract: (delta: number) => void;
+  onUndoLast: () => void;
 }
 
 const BALLS: { value: number; bg: string; text: string }[] = [
+  { value: 1, bg: '#f8fafc', text: '#111827' },
   { value: 2, bg: '#facc15', text: '#4a3400' },
   { value: 3, bg: '#22c55e', text: '#062b14' },
   { value: 4, bg: '#92400e', text: '#fde9d0' },
@@ -19,9 +22,10 @@ const BALLS: { value: number; bg: string; text: string }[] = [
   { value: 10, bg: '#ef4444', text: '#fff1f1' },
 ];
 
-export function PlayerCard({ player, rank, isLeader, onAdd, onSubtract }: PlayerCardProps) {
+export function PlayerCard({ player, rank, isLeader, events, onAdd, onSubtract, onUndoLast }: PlayerCardProps) {
   const [custom, setCustom] = useState('');
   const [pulse, setPulse] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   function bump(fn: (n: number) => void, n: number) {
     fn(n);
@@ -43,12 +47,10 @@ export function PlayerCard({ player, rank, isLeader, onAdd, onSubtract }: Player
     setCustom('');
   }
 
+  const recentEvents = [...events].reverse();
+
   return (
-    <div
-      className={`glass p-5 relative overflow-hidden ${
-        isLeader ? 'glow-emerald' : ''
-      }`}
-    >
+    <div className={`glass p-5 relative overflow-hidden ${isLeader ? 'glow-emerald' : ''}`}>
       {isLeader && (
         <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-emerald-300/90 text-emerald-950 px-2 py-1 rounded-full">
           Leading
@@ -70,20 +72,38 @@ export function PlayerCard({ player, rank, isLeader, onAdd, onSubtract }: Player
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-2">
         {BALLS.map((ball) => (
           <button
-            key={ball.value}
+            key={`add-${ball.value}`}
             onClick={() => bump(onAdd, ball.value)}
             className="btn-press w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-white/20"
-            style={{ background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 45%), ${ball.bg}`, color: ball.text }}
+            style={{
+              background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 45%), ${ball.bg}`,
+              color: ball.text,
+            }}
           >
             +{ball.value}
           </button>
         ))}
       </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {BALLS.map((ball) => (
+          <button
+            key={`sub-${ball.value}`}
+            onClick={() => bump(onSubtract, ball.value)}
+            className="btn-press w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner border border-white/20 opacity-80"
+            style={{
+              background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 45%), ${ball.bg}`,
+              color: ball.text,
+            }}
+          >
+            −{ball.value}
+          </button>
+        ))}
+      </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 mb-3">
         <input
           type="number"
           inputMode="numeric"
@@ -105,6 +125,44 @@ export function PlayerCard({ player, rank, isLeader, onAdd, onSubtract }: Player
           Subtract
         </button>
       </div>
+
+      <button
+        onClick={() => setHistoryOpen((o) => !o)}
+        className="w-full flex items-center justify-between text-xs font-semibold text-white/50 uppercase tracking-wide py-1"
+      >
+        <span>History ({events.length})</span>
+        <span>{historyOpen ? '▲' : '▼'}</span>
+      </button>
+      {historyOpen && (
+        <div className="mt-2 fade-in-up">
+          {recentEvents.length === 0 ? (
+            <p className="text-white/40 text-xs py-2">No score activity yet.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1 mb-2">
+              {recentEvents.map((e) => (
+                <div key={e.id} className="flex items-center justify-between text-xs bg-white/5 rounded-lg px-3 py-2">
+                  <span className="text-white/40">
+                    {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className={e.delta >= 0 ? 'text-emerald-300 font-semibold' : 'text-rose-300 font-semibold'}>
+                    {e.delta >= 0 ? '+' : ''}
+                    {e.delta}
+                  </span>
+                  <span className="text-white/40">Total {e.newTotal}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {events.length > 0 && (
+            <button
+              onClick={onUndoLast}
+              className="btn-press w-full py-2 rounded-xl font-semibold bg-white/10 text-white/70 text-xs"
+            >
+              Undo Last Score
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
