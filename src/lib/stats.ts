@@ -1,4 +1,5 @@
 import type { CompletedGame } from '../types';
+import { toLocalDateKey } from './billing';
 
 export interface PlayerStats {
   name: string;
@@ -8,6 +9,33 @@ export interface PlayerStats {
   totalScore: number;
   totalPaid: number;
   averagePaid: number;
+}
+
+export interface DailySummary {
+  date: string; // YYYY-MM-DD
+  gamesCount: number;
+  totalMinutes: number;
+  totalCost: number;
+  playerTotals: { name: string; amountPaid: number }[];
+}
+
+/** Aggregates billable minutes, table cost, and per-player amounts paid for one calendar day. */
+export function computeDailySummary(history: CompletedGame[], date: string): DailySummary {
+  const games = history.filter((g) => toLocalDateKey(g.date) === date);
+  const totalMinutes = games.reduce((sum, g) => sum + g.billableMinutes, 0);
+  const totalCost = games.reduce((sum, g) => sum + g.totalCost, 0);
+
+  const byPlayer = new Map<string, number>();
+  for (const game of games) {
+    for (const ranked of game.ranking) {
+      byPlayer.set(ranked.player.name, (byPlayer.get(ranked.player.name) ?? 0) + ranked.amountOwed);
+    }
+  }
+  const playerTotals = [...byPlayer.entries()]
+    .map(([name, amountPaid]) => ({ name, amountPaid }))
+    .sort((a, b) => b.amountPaid - a.amountPaid);
+
+  return { date, gamesCount: games.length, totalMinutes, totalCost, playerTotals };
 }
 
 export function computePlayerStats(history: CompletedGame[]): PlayerStats[] {

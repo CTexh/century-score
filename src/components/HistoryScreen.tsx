@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CompletedGame } from '../types';
-import { formatDuration, formatPKR } from '../lib/billing';
+import { formatDuration, formatPKR, localDateFromKey, toLocalDateKey } from '../lib/billing';
+import { computeDailySummary } from '../lib/stats';
 import { ConfirmModal } from './ConfirmModal';
 import { GameSummary } from './GameSummary';
 import { BackButton } from './BackButton';
@@ -21,10 +22,17 @@ export function HistoryScreen({ history, onDelete, onBack }: HistoryScreenProps)
     return history.filter((g) => {
       const matchesSearch =
         search.trim() === '' || g.players.some((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()));
-      const matchesDate = dateFilter === '' || g.date.slice(0, 10) === dateFilter;
+      const matchesDate = dateFilter === '' || toLocalDateKey(g.date) === dateFilter;
       return matchesSearch && matchesDate;
     });
   }, [history, search, dateFilter]);
+
+  // Defaults to today so the day's totals are visible the moment History opens;
+  // picking a date in the filter below re-targets the summary at that day instead.
+  const todayKey = toLocalDateKey(new Date());
+  const summaryDate = dateFilter || todayKey;
+  const isToday = summaryDate === todayKey;
+  const dailySummary = useMemo(() => computeDailySummary(history, summaryDate), [history, summaryDate]);
 
   function share(game: CompletedGame) {
     const lines = [
@@ -63,6 +71,53 @@ export function HistoryScreen({ history, onDelete, onBack }: HistoryScreenProps)
             className="bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-300/60"
           />
         </div>
+
+        <section className="glass-strong p-5 mb-5 fade-in-up">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide">
+              {isToday ? "Today's Summary" : 'Daily Summary'}
+            </h2>
+            <span className="text-xs text-white/40">
+              {localDateFromKey(summaryDate).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+
+          {dailySummary.gamesCount === 0 ? (
+            <p className="text-white/40 text-sm py-2">No games recorded on this day yet.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                <div className="bg-white/5 rounded-xl py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-white/40">Games</div>
+                  <div className="font-semibold">{dailySummary.gamesCount}</div>
+                </div>
+                <div className="bg-white/5 rounded-xl py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-white/40">Total Minutes</div>
+                  <div className="font-semibold text-emerald-300">{dailySummary.totalMinutes} min</div>
+                </div>
+                <div className="bg-white/5 rounded-xl py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-white/40">Total Cost</div>
+                  <div className="font-semibold">{formatPKR(dailySummary.totalCost)}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {dailySummary.playerTotals.map((p) => (
+                  <div key={p.name} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2.5">
+                    <span className="font-medium text-sm">{p.name}</span>
+                    <span className={`font-bold text-sm ${p.amountPaid > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                      {formatPKR(p.amountPaid)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
 
         {filtered.length === 0 ? (
           <p className="text-white/40 text-center py-16">No games found.</p>
