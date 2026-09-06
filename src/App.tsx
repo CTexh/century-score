@@ -19,10 +19,9 @@ import { ActiveGameScreen } from './components/ActiveGameScreen';
 import { TieResolutionScreen } from './components/TieResolutionScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { HistoryScreen } from './components/HistoryScreen';
-import { StatsScreen } from './components/StatsScreen';
 import { PlayersScreen } from './components/PlayersScreen';
 
-type View = 'start' | 'setup' | 'active' | 'tie' | 'results' | 'history' | 'stats' | 'players';
+type View = 'start' | 'setup' | 'active' | 'tie' | 'results' | 'history' | 'players';
 
 export default function App() {
   const [view, setView] = useState<View>('start');
@@ -163,8 +162,7 @@ export default function App() {
           onResumeGame={() => navigate('active')}
           onStartNew={() => navigate('setup')}
           onHistory={() => navigate('history')}
-          onStats={() => navigate('stats')}
-          onManagePlayers={() => navigate('players')}
+          onPlayers={() => navigate('players')}
         />
       )}
 
@@ -208,11 +206,10 @@ export default function App() {
         <HistoryScreen history={history} onBack={() => navigate('start')} onDelete={handleDeleteHistory} />
       )}
 
-      {view === 'stats' && <StatsScreen history={history} onBack={() => navigate('start')} />}
-
       {view === 'players' && (
         <PlayersScreen
           players={players}
+          history={history}
           onAdd={handleAddPlayer}
           onDelete={handleDeletePlayer}
           onBack={() => navigate('start')}

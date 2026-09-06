@@ -3,20 +3,12 @@ import { Logo } from './Logo';
 interface StartScreenProps {
   onStartNew: () => void;
   onHistory: () => void;
-  onStats: () => void;
-  onManagePlayers: () => void;
+  onPlayers: () => void;
   hasActiveGame: boolean;
   onResumeGame: () => void;
 }
 
-export function StartScreen({
-  onStartNew,
-  onHistory,
-  onStats,
-  onManagePlayers,
-  hasActiveGame,
-  onResumeGame,
-}: StartScreenProps) {
+export function StartScreen({ onStartNew, onHistory, onPlayers, hasActiveGame, onResumeGame }: StartScreenProps) {
   return (
     <div className="min-h-svh flex flex-col items-center justify-center px-6 py-12">
       <div className="fade-in-up flex flex-col items-center gap-10 w-full max-w-sm">
@@ -49,16 +41,10 @@ export function StartScreen({
             Game History
           </button>
           <button
-            onClick={onStats}
+            onClick={onPlayers}
             className="btn-press glass w-full py-4 rounded-3xl text-base font-medium text-white/70"
           >
-            Player Statistics
-          </button>
-          <button
-            onClick={onManagePlayers}
-            className="btn-press glass w-full py-4 rounded-3xl text-base font-medium text-white/70"
-          >
-            Manage Players
+            Players
           </button>
         </div>
       </div>

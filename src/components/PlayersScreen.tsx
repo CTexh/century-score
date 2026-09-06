@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { SavedPlayer } from '../types';
+import type { CompletedGame, SavedPlayer } from '../types';
+import { computePlayerStats } from '../lib/stats';
+import { formatPKR } from '../lib/billing';
 import { BackButton } from './BackButton';
 import { ConfirmModal } from './ConfirmModal';
 
 interface PlayersScreenProps {
   players: SavedPlayer[];
+  history: CompletedGame[];
   onAdd: (id: string, name: string) => Promise<SavedPlayer | null>;
   onDelete: (id: string) => void;
   onBack: () => void;
 }
 
-export function PlayersScreen({ players, onAdd, onDelete, onBack }: PlayersScreenProps) {
+export function PlayersScreen({ players, history, onAdd, onDelete, onBack }: PlayersScreenProps) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SavedPlayer | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const statsByName = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computePlayerStats>[number]>();
+    for (const s of computePlayerStats(history)) map.set(s.name.toLowerCase(), s);
+    return map;
+  }, [history]);
 
   async function handleAdd() {
     const trimmed = name.trim();
@@ -43,16 +52,11 @@ export function PlayersScreen({ players, onAdd, onDelete, onBack }: PlayersScree
       <div className="fade-in-up">
         <div className="flex items-center justify-between mb-6">
           <BackButton onClick={onBack} />
-          <h1 className="text-xl font-bold">Manage Players</h1>
+          <h1 className="text-xl font-bold">Players</h1>
           <div className="w-16" />
         </div>
 
-        <p className="text-white/50 text-sm text-center mb-6">
-          Save your regulars here. When starting a Century, you pick names from this list instead of typing them.
-        </p>
-
         <section className="glass p-5 mb-6">
-          <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide mb-3">Add Player</h2>
           <div className="flex gap-2">
             <input
               value={name}
@@ -61,7 +65,7 @@ export function PlayersScreen({ players, onAdd, onDelete, onBack }: PlayersScree
                 setError('');
               }}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="Player name"
+              placeholder="Add a player name"
               className="flex-1 bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-base placeholder:text-white/30 focus:outline-none focus:border-emerald-300/60"
             />
             <button
@@ -78,18 +82,41 @@ export function PlayersScreen({ players, onAdd, onDelete, onBack }: PlayersScree
         {players.length === 0 ? (
           <p className="text-white/40 text-center py-16">No players saved yet. Add your first one above.</p>
         ) : (
-          <div className="flex flex-col gap-2">
-            {players.map((p) => (
-              <div key={p.id} className="glass flex items-center justify-between px-4 py-3">
-                <span className="font-medium">{p.name}</span>
-                <button
-                  onClick={() => setPendingDelete(p)}
-                  className="btn-press text-xs font-semibold text-rose-300 bg-rose-400/10 px-3 py-2 rounded-lg"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+          <div className="flex flex-col gap-3">
+            {players.map((p) => {
+              const stats = statsByName.get(p.name.toLowerCase());
+              return (
+                <div key={p.id} className="glass p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-base">{p.name}</span>
+                    <button
+                      onClick={() => setPendingDelete(p)}
+                      className="btn-press text-xs font-semibold text-rose-300 bg-rose-400/10 px-3 py-1.5 rounded-lg"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {stats ? (
+                    <div className="flex items-center gap-4 text-xs text-white/60">
+                      <span>
+                        <span className="text-white font-semibold">{stats.gamesPlayed}</span> games
+                      </span>
+                      <span>
+                        <span className="text-emerald-300 font-semibold">{stats.wins}</span> wins
+                      </span>
+                      <span>
+                        <span className="text-white font-semibold">{stats.winPercentage}%</span> rate
+                      </span>
+                      <span className="ml-auto">
+                        <span className="text-rose-300 font-semibold">{formatPKR(stats.totalPaid)}</span> paid
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-white/30 text-xs">No games played yet</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
