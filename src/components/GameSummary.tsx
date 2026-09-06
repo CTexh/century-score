@@ -75,9 +75,9 @@ export function GameSummary({ game }: GameSummaryProps) {
         </div>
       </section>
 
-      {game.tieGroups.length > 0 && (
+      {game.lowestTieBreak && (
         <p className="text-xs text-white/40 text-center mt-4">
-          Tie resolved via {game.tieGroups.map((t) => t.method).join(', ')} method.
+          {game.lowestTieBreak.tiedPlayerIds.length} players tied for the lowest score — resolved manually.
         </p>
       )}
     </>

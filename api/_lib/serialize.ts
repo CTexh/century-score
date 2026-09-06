@@ -14,10 +14,16 @@ export interface GameRow {
   players: unknown[];
   scoreEvents: unknown[];
   ranking: unknown[];
-  tieGroups: unknown[];
+  lowestTieBreak: unknown;
 }
 
 export function rowToGame(row: Row): GameRow {
+  // Older records stored an array here (a since-removed multi-tie-group format).
+  // Only the new { tiedPlayerIds, chosenLoserId } shape (or null) is valid now.
+  const parsedTieBreak = JSON.parse(String(row.tie_groups));
+  const lowestTieBreak =
+    parsedTieBreak && !Array.isArray(parsedTieBreak) && typeof parsedTieBreak === 'object' ? parsedTieBreak : null;
+
   return {
     id: String(row.id),
     date: String(row.date),
@@ -32,6 +38,6 @@ export function rowToGame(row: Row): GameRow {
     players: JSON.parse(String(row.players)),
     scoreEvents: JSON.parse(String(row.score_events)),
     ranking: JSON.parse(String(row.ranking)),
-    tieGroups: JSON.parse(String(row.tie_groups)),
+    lowestTieBreak,
   };
 }

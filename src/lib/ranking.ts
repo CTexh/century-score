@@ -1,33 +1,17 @@
-import type { Player, RankedPlayer, ScoreEvent, TieGroup } from '../types';
+import type { Player, RankedPlayer, ScoreEvent } from '../types';
 import { getPercentageTable } from './payment';
 
-export interface DetectedTie {
-  score: number;
-  playerIds: string[];
-  // rank range this tie occupies, 1-indexed, inclusive
-  startRank: number;
-  endRank: number;
-}
-
-/** Sorts players by score descending and detects groups of players sharing the same score. */
-export function detectTies(players: Player[]): DetectedTie[] {
-  const sorted = [...players].sort((a, b) => b.score - a.score);
-  const ties: DetectedTie[] = [];
-  let i = 0;
-  while (i < sorted.length) {
-    let j = i + 1;
-    while (j < sorted.length && sorted[j].score === sorted[i].score) j++;
-    if (j - i > 1) {
-      ties.push({
-        score: sorted[i].score,
-        playerIds: sorted.slice(i, j).map((p) => p.id),
-        startRank: i + 1,
-        endRank: j,
-      });
-    }
-    i = j;
-  }
-  return ties;
+/**
+ * Of a set of still-active players, finds whether more than one shares the lowest
+ * score — the only tie that can ever matter, since that's who the game would charge
+ * the full bill to if closed right now. Returns null when there's a unique lowest
+ * scorer (the common case) or fewer than 2 players.
+ */
+export function findLowestScoreTie(players: Player[]): Player[] | null {
+  if (players.length < 2) return null;
+  const minScore = Math.min(...players.map((p) => p.score));
+  const tied = players.filter((p) => p.score === minScore);
+  return tied.length > 1 ? tied : null;
 }
 
 /**
@@ -55,59 +39,38 @@ export function findNextToFinish(
 
 /**
  * Computes the final ranking + payout. Players in `finishedOrder` are locked in at
- * ranks 1..k in that exact order (they reached the target and were confirmed out).
- * Any players not yet finished are ranked among themselves by score (using `tieGroups`
- * to resolve ties) and appended after the finished players.
+ * ranks 1..k in that exact order (they reached the target and were confirmed out) —
+ * there can never be a tie among them, since elimination happens one at a time.
+ * Any players not yet finished are ranked among themselves by score and appended
+ * after the finished players; the lowest scorer among them is the loser (last place,
+ * pays the bill). If two or more of them tie for lowest, `chosenLoserId` says which
+ * one the table picked.
  */
 export function computeRanking(
   players: Player[],
   totalCost: number,
   finishedOrder: string[] = [],
-  tieGroups: TieGroup[] = [],
+  chosenLoserId?: string,
 ): RankedPlayer[] {
   const lockedOrder = finishedOrder.filter((id) => players.some((p) => p.id === id));
   const remaining = players.filter((p) => !lockedOrder.includes(p.id));
 
-  const remainingOrder: string[] = [];
-  const sorted = [...remaining].sort((a, b) => b.score - a.score);
-  let i = 0;
-  while (i < sorted.length) {
-    let j = i + 1;
-    while (j < sorted.length && sorted[j].score === sorted[i].score) j++;
-    const group = sorted.slice(i, j);
-    if (group.length > 1) {
-      const resolution = tieGroups.find(
-        (t) => t.playerIds.length === group.length && t.playerIds.every((id) => group.some((p) => p.id === id)),
-      );
-      if (resolution?.method === 'manual' && resolution.manualOrder) {
-        remainingOrder.push(...resolution.manualOrder);
-      } else {
-        remainingOrder.push(...group.map((p) => p.id));
-      }
-    } else {
-      remainingOrder.push(group[0].id);
-    }
-    i = j;
+  let remainingOrder: string[];
+  if (remaining.length <= 1) {
+    remainingOrder = remaining.map((p) => p.id);
+  } else {
+    const sorted = [...remaining].sort((a, b) => b.score - a.score);
+    const loserId =
+      chosenLoserId && remaining.some((p) => p.id === chosenLoserId) ? chosenLoserId : sorted[sorted.length - 1].id;
+    remainingOrder = [...sorted.filter((p) => p.id !== loserId).map((p) => p.id), loserId];
   }
 
   const fullOrder = [...lockedOrder, ...remainingOrder];
   const percentageTable = getPercentageTable(players.length);
-  const percentages = new Map<string, number>();
-  fullOrder.forEach((id, idx) => percentages.set(id, percentageTable[idx] ?? 0));
-
-  for (const group of tieGroups) {
-    if (group.method === 'split') {
-      const indices = group.playerIds.map((id) => fullOrder.indexOf(id));
-      const sum = indices.reduce((acc, idx) => acc + (percentageTable[idx] ?? 0), 0);
-      const share = sum / group.playerIds.length;
-      group.playerIds.forEach((id) => percentages.set(id, share));
-    }
-  }
-
   const playerById = new Map(players.map((p) => [p.id, p]));
   return fullOrder.map((id, idx) => {
     const player = playerById.get(id)!;
-    const percentage = percentages.get(id) ?? 0;
+    const percentage = percentageTable[idx] ?? 0;
     return {
       player,
       rank: idx + 1,

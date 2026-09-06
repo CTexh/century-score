@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         JSON.stringify(game.players),
         JSON.stringify(game.scoreEvents ?? []),
         JSON.stringify(game.ranking),
-        JSON.stringify(game.tieGroups ?? []),
+        JSON.stringify(game.lowestTieBreak ?? null),
       ],
     });
     res.status(201).json({ ok: true });

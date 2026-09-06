@@ -21,11 +21,12 @@ export interface ScoreEvent {
   timestamp: string; // ISO
 }
 
-export interface TieGroup {
-  playerIds: string[];
-  method: 'manual' | 'split';
-  // for manual: ordered list of playerIds from higher to lower rank within the group
-  manualOrder?: string[];
+// Records how a tie for the lowest (losing) score at a manual mid-game close was
+// resolved. Ties can only happen among players still active when the table stops the
+// game early — the natural elimination-race conclusion never produces one.
+export interface TieBreak {
+  tiedPlayerIds: string[];
+  chosenLoserId: string;
 }
 
 export interface RankedPlayer {
@@ -61,5 +62,5 @@ export interface CompletedGame {
   scoreEvents: ScoreEvent[];
   ranking: RankedPlayer[];
   winner: string;
-  tieGroups: TieGroup[];
+  lowestTieBreak: TieBreak | null;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { ActiveGame, CompletedGame, SavedPlayer, TieGroup } from './types';
-import { detectTies, computeRanking, type DetectedTie } from './lib/ranking';
+import type { ActiveGame, CompletedGame, Player, SavedPlayer, TieBreak } from './types';
+import { findLowestScoreTie, computeRanking } from './lib/ranking';
 import { billableMinutes, elapsedSeconds, totalCost } from './lib/billing';
 import {
   addGameToHistory,
@@ -16,7 +16,7 @@ import {
 import { StartScreen } from './components/StartScreen';
 import { GameSetup } from './components/GameSetup';
 import { ActiveGameScreen } from './components/ActiveGameScreen';
-import { TieResolutionScreen } from './components/TieResolutionScreen';
+import { LoserTieScreen } from './components/LoserTieScreen';
 import { ResultsScreen } from './components/ResultsScreen';
 import { HistoryScreen } from './components/HistoryScreen';
 import { PlayersScreen } from './components/PlayersScreen';
@@ -29,7 +29,7 @@ export default function App() {
   const [history, setHistory] = useState<CompletedGame[]>([]);
   const [players, setPlayers] = useState<SavedPlayer[]>([]);
   const [pendingGame, setPendingGame] = useState<ActiveGame | null>(null);
-  const [pendingTies, setPendingTies] = useState<DetectedTie[]>([]);
+  const [tiedLosers, setTiedLosers] = useState<Player[]>([]);
   const [freshResult, setFreshResult] = useState<CompletedGame | null>(null);
   // Bumped whenever a back-swipe/back-button is blocked mid-game, so the active
   // screen can react by surfacing its own close confirmation instead.
@@ -84,11 +84,11 @@ export default function App() {
     navigate('active');
   }
 
-  async function finalizeGame(game: ActiveGame, tieGroups: TieGroup[]) {
+  async function finalizeGame(game: ActiveGame, tieBreak?: TieBreak) {
     const endTimestamp = new Date().toISOString();
     const actualDurationSeconds = elapsedSeconds(game.startTimestamp);
     const cost = totalCost(actualDurationSeconds, game.pricePerMinute);
-    const ranking = computeRanking(game.players, cost, game.finishedOrder, tieGroups);
+    const ranking = computeRanking(game.players, cost, game.finishedOrder, tieBreak?.chosenLoserId);
     const winner = ranking.find((r) => r.rank === 1)?.player.name ?? '';
 
     const completed: CompletedGame = {
@@ -105,13 +105,13 @@ export default function App() {
       scoreEvents: game.scoreEvents,
       ranking,
       winner,
-      tieGroups,
+      lowestTieBreak: tieBreak ?? null,
     };
 
     clearActiveGame();
     setActiveGame(null);
     setPendingGame(null);
-    setPendingTies([]);
+    setTiedLosers([]);
     setFreshResult(completed);
     navigate('results');
     setHistory(await addGameToHistory(completed));
@@ -119,12 +119,12 @@ export default function App() {
 
   function handleCloseCentury(game: ActiveGame) {
     const remaining = game.players.filter((p) => !game.finishedOrder.includes(p.id));
-    const ties = detectTies(remaining);
-    if (ties.length === 0) {
-      finalizeGame(game, []);
+    const tie = findLowestScoreTie(remaining);
+    if (!tie) {
+      finalizeGame(game);
     } else {
       setPendingGame(game);
-      setPendingTies(ties);
+      setTiedLosers(tie);
       navigate('tie');
     }
   }
@@ -134,7 +134,7 @@ export default function App() {
     const updated: ActiveGame = { ...activeGame, finishedOrder: [...activeGame.finishedOrder, playerId] };
     // Once only one player is left un-finished, the race is over — they're the loser.
     if (updated.finishedOrder.length === updated.players.length - 1 && updated.players.length > 1) {
-      finalizeGame(updated, []);
+      finalizeGame(updated);
     } else {
       handleUpdateGame(updated);
     }
@@ -186,10 +186,11 @@ export default function App() {
       )}
 
       {view === 'tie' && pendingGame && (
-        <TieResolutionScreen
-          ties={pendingTies}
-          players={pendingGame.players}
-          onResolve={(tieGroups) => finalizeGame(pendingGame, tieGroups)}
+        <LoserTieScreen
+          players={tiedLosers}
+          onChoose={(loserId) =>
+            finalizeGame(pendingGame, { tiedPlayerIds: tiedLosers.map((p) => p.id), chosenLoserId: loserId })
+          }
         />
       )}
 
