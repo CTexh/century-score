@@ -11,17 +11,15 @@ export interface PlayerStats {
   averagePaid: number;
 }
 
-export interface DailySummary {
-  date: string; // YYYY-MM-DD
+export interface DailyAggregate {
   gamesCount: number;
   totalMinutes: number;
   totalCost: number;
   playerTotals: { name: string; amountPaid: number }[];
 }
 
-/** Aggregates billable minutes, table cost, and per-player amounts paid for one calendar day. */
-export function computeDailySummary(history: CompletedGame[], date: string): DailySummary {
-  const games = history.filter((g) => toLocalDateKey(g.date) === date);
+/** Aggregates billable minutes, table cost, and per-player amounts paid across a set of games. */
+export function aggregateDaily(games: CompletedGame[]): DailyAggregate {
   const totalMinutes = games.reduce((sum, g) => sum + g.billableMinutes, 0);
   const totalCost = games.reduce((sum, g) => sum + g.totalCost, 0);
 
@@ -35,7 +33,21 @@ export function computeDailySummary(history: CompletedGame[], date: string): Dai
     .map(([name, amountPaid]) => ({ name, amountPaid }))
     .sort((a, b) => b.amountPaid - a.amountPaid);
 
-  return { date, gamesCount: games.length, totalMinutes, totalCost, playerTotals };
+  return { gamesCount: games.length, totalMinutes, totalCost, playerTotals };
+}
+
+/** Groups games by local calendar day (most recent first) — days with no games are simply absent. */
+export function groupByDay(games: CompletedGame[]): { date: string; games: CompletedGame[] }[] {
+  const byDay = new Map<string, CompletedGame[]>();
+  for (const game of games) {
+    const key = toLocalDateKey(game.date);
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(game);
+    else byDay.set(key, [game]);
+  }
+  return [...byDay.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, dayGames]) => ({ date, games: dayGames }));
 }
 
 export function computePlayerStats(history: CompletedGame[]): PlayerStats[] {
