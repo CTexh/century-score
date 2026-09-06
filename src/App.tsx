@@ -27,11 +27,46 @@ export default function App() {
   const [pendingGame, setPendingGame] = useState<ActiveGame | null>(null);
   const [pendingTies, setPendingTies] = useState<DetectedTie[]>([]);
   const [freshResult, setFreshResult] = useState<CompletedGame | null>(null);
+  // Bumped whenever a back-swipe/back-button is blocked mid-game, so the active
+  // screen can react by surfacing its own close confirmation instead.
+  const [closeRequestSignal, setCloseRequestSignal] = useState(0);
 
   useEffect(() => {
     setActiveGame(loadActiveGame());
     loadHistory().then(setHistory);
   }, []);
+
+  // Give every screen a real entry in browser history so a swipe-back gesture (or the
+  // hardware/browser back button) moves between in-app screens instead of leaving the
+  // site. `navigate` is the only thing that should ever change `view` going forward.
+  useEffect(() => {
+    window.history.replaceState({ view: 'start' }, '');
+  }, []);
+
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      const nextView = (e.state?.view as View) ?? 'start';
+      // Block leaving mid-game or mid-tie-resolution: re-assert the current history
+      // entry instead of following the browser back navigation.
+      if (view === 'active' && nextView !== 'active') {
+        window.history.pushState({ view: 'active' }, '');
+        setCloseRequestSignal((n) => n + 1);
+        return;
+      }
+      if (view === 'tie' && nextView !== 'tie') {
+        window.history.pushState({ view: 'tie' }, '');
+        return;
+      }
+      setView(nextView);
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [view]);
+
+  function navigate(next: View) {
+    window.history.pushState({ view: next }, '');
+    setView(next);
+  }
 
   function handleUpdateGame(game: ActiveGame) {
     setActiveGame(game);
@@ -41,7 +76,7 @@ export default function App() {
   function handleStartGame(game: ActiveGame) {
     setActiveGame(game);
     saveActiveGame(game);
-    setView('active');
+    navigate('active');
   }
 
   async function finalizeGame(game: ActiveGame, tieGroups: TieGroup[]) {
@@ -73,7 +108,7 @@ export default function App() {
     setPendingGame(null);
     setPendingTies([]);
     setFreshResult(completed);
-    setView('results');
+    navigate('results');
     setHistory(await addGameToHistory(completed));
   }
 
@@ -85,7 +120,7 @@ export default function App() {
     } else {
       setPendingGame(game);
       setPendingTies(ties);
-      setView('tie');
+      navigate('tie');
     }
   }
 
@@ -109,14 +144,14 @@ export default function App() {
       {view === 'start' && (
         <StartScreen
           hasActiveGame={!!activeGame}
-          onResumeGame={() => setView('active')}
-          onStartNew={() => setView('setup')}
-          onHistory={() => setView('history')}
-          onStats={() => setView('stats')}
+          onResumeGame={() => navigate('active')}
+          onStartNew={() => navigate('setup')}
+          onHistory={() => navigate('history')}
+          onStats={() => navigate('stats')}
         />
       )}
 
-      {view === 'setup' && <GameSetup onStart={handleStartGame} onCancel={() => setView('start')} />}
+      {view === 'setup' && <GameSetup onStart={handleStartGame} onCancel={() => navigate('start')} />}
 
       {view === 'active' && activeGame && (
         <ActiveGameScreen
@@ -124,6 +159,7 @@ export default function App() {
           onUpdateGame={handleUpdateGame}
           onCloseCentury={handleCloseCentury}
           onEliminate={handleEliminate}
+          closeRequestSignal={closeRequestSignal}
         />
       )}
 
@@ -138,17 +174,17 @@ export default function App() {
       {view === 'results' && freshResult && (
         <ResultsScreen
           game={freshResult}
-          onSaveAndFinish={() => setView('start')}
-          onStartAnother={() => setView('setup')}
-          onViewHistory={() => setView('history')}
+          onSaveAndFinish={() => navigate('start')}
+          onStartAnother={() => navigate('setup')}
+          onViewHistory={() => navigate('history')}
         />
       )}
 
       {view === 'history' && (
-        <HistoryScreen history={history} onBack={() => setView('start')} onDelete={handleDeleteHistory} />
+        <HistoryScreen history={history} onBack={() => navigate('start')} onDelete={handleDeleteHistory} />
       )}
 
-      {view === 'stats' && <StatsScreen history={history} onBack={() => setView('start')} />}
+      {view === 'stats' && <StatsScreen history={history} onBack={() => navigate('start')} />}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { ActiveGame } from '../types';
 import { elapsedSeconds, formatDuration, formatPKR } from '../lib/billing';
@@ -11,12 +11,29 @@ interface ActiveGameScreenProps {
   onUpdateGame: (game: ActiveGame) => void;
   onCloseCentury: (game: ActiveGame) => void;
   onEliminate: (playerId: string) => void;
+  // Increments when a back-swipe/back-button was blocked mid-game, so we can surface
+  // the close confirmation instead of silently swallowing the gesture.
+  closeRequestSignal: number;
 }
 
-export function ActiveGameScreen({ game, onUpdateGame, onCloseCentury, onEliminate }: ActiveGameScreenProps) {
+export function ActiveGameScreen({
+  game,
+  onUpdateGame,
+  onCloseCentury,
+  onEliminate,
+  closeRequestSignal,
+}: ActiveGameScreenProps) {
   const [elapsed, setElapsed] = useState(() => elapsedSeconds(game.startTimestamp));
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const lastCloseRequestSignal = useRef(closeRequestSignal);
+
+  useEffect(() => {
+    if (closeRequestSignal !== lastCloseRequestSignal.current) {
+      lastCloseRequestSignal.current = closeRequestSignal;
+      setShowCloseConfirm(true);
+    }
+  }, [closeRequestSignal]);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsed(elapsedSeconds(game.startTimestamp)), 1000);
